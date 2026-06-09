@@ -1,0 +1,9 @@
+pip install fastapi
+pip install groq
+pip install speechrecognition
+pip install pyaudio
+pip install gtts
+pip install pygame
+pip install sqlalchemy
+pip install psycopg2-binary
+pip install python-dotenv
