@@ -6,8 +6,7 @@ class OrderManager:
     def add_to_cart(self, product_name, quantity=1):
 
         self.cart.append({
-            "product": product_name,
-            "quantity": quantity
+            "product": product_name,"quantity": quantity
         })
 
         return f"{quantity} {product_name}(s) added to cart."

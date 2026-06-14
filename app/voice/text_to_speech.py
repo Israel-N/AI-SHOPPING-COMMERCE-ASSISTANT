@@ -4,6 +4,16 @@ from pathlib import Path
 from gtts import gTTS
 import pygame
 
+
+def stop_speaking():
+    try:
+        if pygame.mixer.get_init():
+            pygame.mixer.music.stop()
+            pygame.mixer.music.unload()
+    except pygame.error:
+        pass
+
+
 def speak(text):
 
     tts = gTTS(
