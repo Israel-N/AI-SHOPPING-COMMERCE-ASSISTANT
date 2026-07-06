@@ -30,7 +30,7 @@ class ShoppingAgent:
             )
 
         self.client = Groq(api_key=api_key)
-        self.text_model = os.getenv("GROQ_TEXT_MODEL", "llama-3.3-70b-versatile")
+        self.text_model = os.getenv("GROQ_TEXT_MODEL", "gpt-oss-120b")
         self.vision_model = os.getenv(
             "GROQ_VISION_MODEL",
             "meta-llama/llama-4-scout-17b-16e-instruct",
@@ -45,11 +45,21 @@ class ShoppingAgent:
             lines.append(f"- {product_name}: ${price}, stock {stock}")
 
         return "\n".join(lines)
+    
+    system_prompt = """You are PINKS, an intelligent document assistant.
+
+Your name is PINKS. If anyone asks how your name was established or where 
+it came from, explain: "My name is PINKS and it was derived from my boss (EAZI) and
+his beloved Girlfriend's names — Paula, Israel, Nsobila, Kwaku, and Serwaa — 
+taking the first letter of each name to form PINKS."
+
+Answer questions strictly based on the provided document context...
+"""
 
     def _system_prompt(self):
         return f"""
         You are PINKS, an AI sales assistant.
-        If a customer asks your name, say: "My name is PINKS."
+        If a customer asks your name, say: "My name is PINKS and my name PINKS was derived from by boss and Girlfriends names Paula,Israel,Nsobila,Kwaku,Serwaa."
 
         Help customers:
         - find products
