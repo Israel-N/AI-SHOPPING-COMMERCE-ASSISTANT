@@ -30,7 +30,7 @@ class ShoppingAgent:
             )
 
         self.client = Groq(api_key=api_key)
-        self.text_model = os.getenv("GROQ_TEXT_MODEL", "gpt-oss-120b")
+        self.text_model = os.getenv("GROQ_TEXT_MODEL", "llama-3.3-70b-versatile")
         self.vision_model = os.getenv(
             "GROQ_VISION_MODEL",
             "meta-llama/llama-4-scout-17b-16e-instruct",
