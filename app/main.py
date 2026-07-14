@@ -5,184 +5,369 @@ from pathlib import Path
 
 import streamlit as st
 
-# Ensure the project root is on sys.path so imports like `voice.*` and `ai.*` resolve.
+
+# -----------------------------
+# PATH CONFIGURATION
+# -----------------------------
+
 FILE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = FILE_DIR.parent
 
-for p in (PROJECT_ROOT, FILE_DIR):
-    sp = str(p)
-    if sp not in sys.path:
-        sys.path.insert(0, sp)
+for path in [PROJECT_ROOT, FILE_DIR]:
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
+
+
+# -----------------------------
+# IMPORTS
+# -----------------------------
 
 from voice.speech_to_text import VoiceRecognizer
 from voice.text_to_speech import speak, stop_speaking
 
+
 AGENT_FILE = PROJECT_ROOT / "ai" / "shopping_agent.py"
 
 
-DEFAULT_MESSAGES = [
-            {
-                "role": "assistant",
-                "content": "Hi, my name is PINKS. I can help you find products, compare options, and place orders.",
-            }
-]
 
+# -----------------------------
+# PAGE SETTINGS
+# -----------------------------
 
 st.set_page_config(
     page_title="PINKS",
-    layout="centered",
+    layout="centered"
 )
 
 
+
+# -----------------------------
+# DEFAULT CHAT
+# -----------------------------
+
+DEFAULT_MESSAGES = [
+    {
+        "role": "assistant",
+        "content":
+        "Hi, my name is PINKS. I can help you find products, compare options, and place orders."
+    }
+]
+
+
+
+# -----------------------------
+# LOAD AI AGENT
+# -----------------------------
+
 def get_agent():
-    module_name = f"shopping_agent_live_{time.time_ns()}"
-    spec = importlib.util.spec_from_file_location(module_name, AGENT_FILE)
+
+    module_name = f"shopping_agent_{time.time_ns()}"
+
+    spec = importlib.util.spec_from_file_location(
+        module_name,
+        AGENT_FILE
+    )
+
     module = importlib.util.module_from_spec(spec)
+
     spec.loader.exec_module(module)
-    ShoppingAgent = module.ShoppingAgent
 
-    return ShoppingAgent()
+    return module.ShoppingAgent()
 
+
+
+# -----------------------------
+# VOICE INSTANCE
+# -----------------------------
 
 @st.cache_resource
-def get_voice_recognizer():
+def get_voice():
+
     return VoiceRecognizer()
 
 
-def initialize_session_state():
+
+# -----------------------------
+# SESSION MEMORY
+# -----------------------------
+
+def initialize():
+
     if "messages" not in st.session_state:
         st.session_state.messages = DEFAULT_MESSAGES.copy()
+
 
     if "voice_enabled" not in st.session_state:
         st.session_state.voice_enabled = True
 
 
-def add_message(role, content):
+
+def add_message(role, text):
+
     st.session_state.messages.append(
         {
             "role": role,
-            "content": content,
+            "content": text
         }
     )
 
 
-def ask_assistant(customer_message, image_bytes=None, image_mime_type=None, image_name=None):
-    cleaned_message = customer_message.strip()
 
-    if not cleaned_message:
-        st.warning("I did not catch a message. Try typing, listening, or uploading an image again.")
-        return
+# -----------------------------
+# PROCESS USER MESSAGE
+# -----------------------------
 
-    if cleaned_message.lower() in {"exit", "quit", "stop"}:
-        add_message("user", cleaned_message)
-        add_message("assistant", "Session ended. Refresh the page when you want to start again.")
-        return
+def ask_pinks(
+        message,
+        image_bytes=None,
+        image_type=None,
+        image_name=None
+):
 
-    display_message = cleaned_message
+    if not message.strip():
 
-    if image_name:
-        display_message = f"{cleaned_message}\n\nUploaded image: {image_name}"
-
-    add_message("user", display_message)
-
-    with st.chat_message("user"):
-        st.write(cleaned_message)
-        if image_bytes:
-            st.image(image_bytes, caption=image_name)
-
-    with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            try:
-                answer = get_agent().reply(
-                    cleaned_message,
-                    image_bytes=image_bytes,
-                    image_mime_type=image_mime_type,
-                )
-            except Exception as exc:
-                st.error(f"Assistant error: {exc}")
-                return
-
-        st.write(answer)
-
-    add_message("assistant", answer)
-
-    if st.session_state.voice_enabled:
-        try:
-            speak(answer)
-        except Exception as exc:
-            st.warning(f"Could not play audio response: {exc}")
-
-
-def listen_for_message():
-    with st.spinner("Listening..."):
-        try:
-            return get_voice_recognizer().listen()
-        except Exception as exc:
-            st.error(f"Microphone error: {exc}")
-            return None
-
-
-initialize_session_state()
-
-st.title("PINKS")
-st.caption("Talk, type, or upload a product image to shop, compare, and get recommendations.")
-
-with st.sidebar:
-    st.header("Controls")
-    st.session_state.voice_enabled = st.toggle(
-        "Speak assistant replies",
-        value=st.session_state.voice_enabled,
-    )
-
-    if st.button("Clear conversation", use_container_width=True):
-        stop_speaking()
-        st.cache_resource.clear()
-        st.session_state.messages = DEFAULT_MESSAGES.copy()
-        st.rerun()
-
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.write(message["content"])
-
-voice_col, status_col = st.columns([1, 2])
-
-with voice_col:
-    listen_clicked = st.button("Listen once", use_container_width=True)
-
-with status_col:
-    st.write("Use the button for microphone input, or type below.")
-
-uploaded_image = st.file_uploader(
-    "Upload a product image",
-    type=["png", "jpg", "jpeg", "webp"],
-)
-
-if uploaded_image:
-    image_bytes = uploaded_image.getvalue()
-    st.image(image_bytes, caption=uploaded_image.name, use_container_width=True)
-
-    image_prompt = st.text_input(
-        "Ask about this image",
-        value="What product is this, and how does it compare to products in your catalog?",
-    )
-
-    if st.button("Analyze image", use_container_width=True):
-        ask_assistant(
-            image_prompt,
-            image_bytes=image_bytes,
-            image_mime_type=uploaded_image.type,
-            image_name=uploaded_image.name,
+        st.warning(
+            "Please enter a message."
         )
 
-if listen_clicked:
-    spoken_message = listen_for_message()
+        return
 
-    if spoken_message:
-        ask_assistant(spoken_message)
+
+
+    add_message(
+        "user",
+        message
+    )
+
+
+    with st.chat_message("user"):
+
+        st.write(message)
+
+        if image_bytes:
+
+            st.image(
+                image_bytes,
+                caption=image_name
+            )
+
+
+
+    with st.chat_message("assistant"):
+
+        with st.spinner("PINKS is thinking..."):
+
+            try:
+
+                response = get_agent().reply(
+                    message,
+                    image_bytes=image_bytes,
+                    image_mime_type=image_type
+                )
+
+
+            except Exception as e:
+
+                response = f"Error: {e}"
+
+
+
+        st.write(response)
+
+
+
+    add_message(
+        "assistant",
+        response
+    )
+
+
+
+    # Voice reply
+
+    if st.session_state.voice_enabled:
+
+        try:
+
+            speak(response)
+
+        except Exception as e:
+
+            st.warning(
+                f"Voice error: {e}"
+            )
+
+
+
+# -----------------------------
+# VOICE INPUT
+# -----------------------------
+
+def listen():
+
+    try:
+
+        with st.spinner(
+            "Listening..."
+        ):
+
+            return get_voice().listen()
+
+
+    except Exception as e:
+
+        st.error(
+            f"Microphone error: {e}"
+        )
+
+        return None
+
+
+
+# -----------------------------
+# START APP
+# -----------------------------
+
+initialize()
+
+
+
+st.title("🛒 PINKS AI")
+
+st.caption(
+    "Your AI shopping assistant. Talk, type, or upload product images."
+)
+
+
+
+# -----------------------------
+# SIDEBAR
+# -----------------------------
+
+with st.sidebar:
+
+    st.header(
+        "Settings"
+    )
+
+
+    st.session_state.voice_enabled = st.toggle(
+        "Enable voice replies",
+        value=st.session_state.voice_enabled
+    )
+
+
+    if st.button(
+        "Clear chat",
+        use_container_width=True
+    ):
+
+        stop_speaking()
+
+        st.session_state.messages = (
+            DEFAULT_MESSAGES.copy()
+        )
+
+        st.rerun()
+
+
+
+# -----------------------------
+# SHOW CHAT HISTORY
+# -----------------------------
+
+for message in st.session_state.messages:
+
+    with st.chat_message(
+        message["role"]
+    ):
+
+        st.write(
+            message["content"]
+        )
+
+
+
+# -----------------------------
+# IMAGE UPLOAD
+# -----------------------------
+
+uploaded_image = st.file_uploader(
+    "Upload product image",
+    type=[
+        "png",
+        "jpg",
+        "jpeg",
+        "webp"
+    ]
+)
+
+
+image_bytes = None
+image_type = None
+image_name = None
+
+
+if uploaded_image:
+
+    image_bytes = uploaded_image.getvalue()
+
+    image_type = uploaded_image.type
+
+    image_name = uploaded_image.name
+
+
+    st.image(
+        image_bytes,
+        caption=image_name
+    )
+
+
+
+# -----------------------------
+# VOICE BUTTON
+# -----------------------------
+
+if st.button(
+    "🎤 Talk to PINKS",
+    use_container_width=True
+):
+
+    user_voice = listen()
+
+
+    if user_voice:
+
+        ask_pinks(
+            user_voice,
+            image_bytes,
+            image_type,
+            image_name
+        )
+
+
     else:
-        st.warning("No speech was recognized. Please try again.")
 
-typed_message = st.chat_input("Ask for a product, comparison, or order help")
+        st.warning(
+            "I could not understand you."
+        )
 
-if typed_message:
-    ask_assistant(typed_message)
+
+
+# -----------------------------
+# TEXT INPUT
+# -----------------------------
+
+text = st.chat_input(
+    "Ask PINKS about products..."
+)
+
+
+if text:
+
+    ask_pinks(
+        text,
+        image_bytes,
+        image_type,
+        image_name
+    )
