@@ -8,7 +8,7 @@ if defined _OLD_CODEPAGE (
     "%SystemRoot%\System32\chcp.com" 65001 > nul
 )
 
-set VIRTUAL_ENV=C:\Users\USER\OneDrive\Desktop\Voice-commerce-bot\venv
+set VIRTUAL_ENV=C:\Users\USER\OneDrive\Documents\Projects\AI shopping commerce Assistant\venv
 
 if not defined PROMPT set PROMPT=$P$G
 

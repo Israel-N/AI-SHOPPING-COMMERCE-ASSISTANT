@@ -1,0 +1,31 @@
+flowchart LR
+
+    Customer((Customer))
+
+    Mic[Microphone]
+    STT[Speech-to-Text Module]
+    Agent[Shopping Agent]
+    Groq[Groq LLM]
+    Inventory[(Product Inventory)]
+    Orders[(Order Manager)]
+    Database[(PostgreSQL Database)]
+    TTS[Text-to-Speech Module]
+    Speaker[Speaker]
+
+    Customer --> Mic
+    Mic --> STT
+    STT --> Agent
+
+    Agent --> Groq
+    Groq --> Agent
+
+    Agent --> Inventory
+    Inventory --> Agent
+
+    Agent --> Orders
+    Orders --> Database
+    Database --> Orders
+
+    Agent --> TTS
+    TTS --> Speaker
+    Speaker --> Customer

@@ -1,49 +1,42 @@
-import importlib.util
 import sys
-import time
 from pathlib import Path
 
 import streamlit as st
 
 
-# -----------------------------
+# --------------------------------
 # PATH CONFIGURATION
-# -----------------------------
+# --------------------------------
 
 FILE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = FILE_DIR.parent
 
-for path in [PROJECT_ROOT, FILE_DIR]:
-    if str(path) not in sys.path:
-        sys.path.insert(0, str(path))
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+if str(FILE_DIR) not in sys.path:
+    sys.path.insert(0, str(FILE_DIR))
 
 
-# -----------------------------
 # IMPORTS
-# -----------------------------
 
-from voice.speech_to_text import VoiceRecognizer
-from voice.text_to_speech import speak, stop_speaking
-
-
-AGENT_FILE = PROJECT_ROOT / "ai" / "shopping_agent.py"
+from ai.shopping_agent import ShoppingAgent
+from app.voice.speech_to_text import VoiceRecognizer
+from app.voice.text_to_speech import speak, stop_speaking
 
 
 
-# -----------------------------
 # PAGE SETTINGS
-# -----------------------------
 
 st.set_page_config(
-    page_title="PINKS",
+    page_title="PINKS AI",
     layout="centered"
 )
 
 
 
-# -----------------------------
+# --------------------------------
 # DEFAULT CHAT
-# -----------------------------
+# --------------------------------
 
 DEFAULT_MESSAGES = [
     {
@@ -55,30 +48,20 @@ DEFAULT_MESSAGES = [
 
 
 
-# -----------------------------
-# LOAD AI AGENT
-# -----------------------------
+# --------------------------------
+# AI AGENT
+# --------------------------------
 
+@st.cache_resource
 def get_agent():
 
-    module_name = f"shopping_agent_{time.time_ns()}"
-
-    spec = importlib.util.spec_from_file_location(
-        module_name,
-        AGENT_FILE
-    )
-
-    module = importlib.util.module_from_spec(spec)
-
-    spec.loader.exec_module(module)
-
-    return module.ShoppingAgent()
+    return ShoppingAgent()
 
 
 
-# -----------------------------
-# VOICE INSTANCE
-# -----------------------------
+# --------------------------------
+# VOICE
+# --------------------------------
 
 @st.cache_resource
 def get_voice():
@@ -87,38 +70,42 @@ def get_voice():
 
 
 
-# -----------------------------
-# SESSION MEMORY
-# -----------------------------
+# --------------------------------
+# MEMORY
+# --------------------------------
 
 def initialize():
 
     if "messages" not in st.session_state:
+
         st.session_state.messages = DEFAULT_MESSAGES.copy()
 
 
     if "voice_enabled" not in st.session_state:
+
         st.session_state.voice_enabled = True
 
 
 
-def add_message(role, text):
+def add_message(role, content):
 
     st.session_state.messages.append(
         {
             "role": role,
-            "content": text
+            "content": content
         }
     )
 
 
 
-# -----------------------------
-# PROCESS USER MESSAGE
-# -----------------------------
+# --------------------------------
+# PROCESS MESSAGE
+# --------------------------------
 
 def ask_pinks(
         message,
+        model,
+        temperature,
         image_bytes=None,
         image_type=None,
         image_name=None
@@ -155,14 +142,23 @@ def ask_pinks(
 
     with st.chat_message("assistant"):
 
-        with st.spinner("PINKS is thinking..."):
+        with st.spinner(
+            "PINKS is thinking..."
+        ):
 
             try:
 
                 response = get_agent().reply(
-                    message,
+
+                    customer_message=message,
+
                     image_bytes=image_bytes,
-                    image_mime_type=image_type
+
+                    image_mime_type=image_type,
+
+                    model=model,
+
+                    temperature=temperature
                 )
 
 
@@ -183,7 +179,7 @@ def ask_pinks(
 
 
 
-    # Voice reply
+    # Voice output
 
     if st.session_state.voice_enabled:
 
@@ -199,9 +195,9 @@ def ask_pinks(
 
 
 
-# -----------------------------
-# VOICE INPUT
-# -----------------------------
+# --------------------------------
+# LISTEN
+# --------------------------------
 
 def listen():
 
@@ -224,15 +220,16 @@ def listen():
 
 
 
-# -----------------------------
+# --------------------------------
 # START APP
-# -----------------------------
+# --------------------------------
 
 initialize()
 
 
-
-st.title("🛒 PINKS AI")
+st.title(
+    "🛒 PINKS AI"
+)
 
 st.caption(
     "Your AI shopping assistant. Talk, type, or upload product images."
@@ -240,9 +237,9 @@ st.caption(
 
 
 
-# -----------------------------
+# --------------------------------
 # SIDEBAR
-# -----------------------------
+# --------------------------------
 
 with st.sidebar:
 
@@ -257,12 +254,42 @@ with st.sidebar:
     )
 
 
+    model = st.selectbox(
+
+        "Choose AI Model",
+
+        [
+            "llama-3.3-70b-versatile",
+            "llama-3.1-8b-instant",
+            "llama-3.2-11b-vision-preview",
+            "gemma2-9b-it",
+            "mixtral-8x7b-32768"
+        ]
+    )
+
+
+    temperature = st.slider(
+
+        "Temperature",
+
+        min_value=0.0,
+
+        max_value=1.0,
+
+        value=0.7,
+
+        step=0.1
+    )
+
+
     if st.button(
-        "Clear chat",
+        "Clear Chat",
         use_container_width=True
     ):
 
         stop_speaking()
+
+        get_agent().reset_history()
 
         st.session_state.messages = (
             DEFAULT_MESSAGES.copy()
@@ -272,9 +299,9 @@ with st.sidebar:
 
 
 
-# -----------------------------
-# SHOW CHAT HISTORY
-# -----------------------------
+# --------------------------------
+# CHAT HISTORY
+# --------------------------------
 
 for message in st.session_state.messages:
 
@@ -288,12 +315,14 @@ for message in st.session_state.messages:
 
 
 
-# -----------------------------
+# --------------------------------
 # IMAGE UPLOAD
-# -----------------------------
+# --------------------------------
 
 uploaded_image = st.file_uploader(
+
     "Upload product image",
+
     type=[
         "png",
         "jpg",
@@ -324,9 +353,9 @@ if uploaded_image:
 
 
 
-# -----------------------------
+# --------------------------------
 # VOICE BUTTON
-# -----------------------------
+# --------------------------------
 
 if st.button(
     "🎤 Talk to PINKS",
@@ -339,24 +368,25 @@ if st.button(
     if user_voice:
 
         ask_pinks(
+
             user_voice,
+
+            model,
+
+            temperature,
+
             image_bytes,
+
             image_type,
+
             image_name
         )
 
 
-    else:
 
-        st.warning(
-            "I could not understand you."
-        )
-
-
-
-# -----------------------------
-# TEXT INPUT
-# -----------------------------
+# --------------------------------
+# TEXT CHAT
+# --------------------------------
 
 text = st.chat_input(
     "Ask PINKS about products..."
@@ -366,8 +396,16 @@ text = st.chat_input(
 if text:
 
     ask_pinks(
+
         text,
+
+        model,
+
+        temperature,
+
         image_bytes,
+
         image_type,
+
         image_name
     )

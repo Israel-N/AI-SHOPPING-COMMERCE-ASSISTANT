@@ -18,9 +18,7 @@ class ShoppingAgent:
 
     def __init__(self):
 
-        # -----------------------------
         # LOAD ENVIRONMENT VARIABLES
-        # -----------------------------
 
         project_root = Path(__file__).resolve().parents[1]
 
@@ -54,9 +52,7 @@ class ShoppingAgent:
 
 
 
-        # -----------------------------
         # GROQ CLIENT
-        # -----------------------------
 
         self.client = Groq(
             api_key=api_key
@@ -71,14 +67,12 @@ class ShoppingAgent:
 
         self.vision_model = os.getenv(
             "GROQ_VISION_MODEL",
-            "meta-llama/llama-4-scout-17b-16e-instruct"
+            "llama-3.2-11b-vision-preview"
         )
 
 
 
-        # -----------------------------
         # MEMORY
-        # -----------------------------
 
         self.history = [
 
@@ -91,9 +85,7 @@ class ShoppingAgent:
 
 
 
-    # -----------------------------
     # PRODUCT CATALOG
-    # -----------------------------
 
     def catalog_summary(self):
 
@@ -115,9 +107,7 @@ class ShoppingAgent:
 
 
 
-    # -----------------------------
     # SYSTEM PROMPT
-    # -----------------------------
 
     def system_prompt(self):
 
@@ -161,28 +151,39 @@ Never invent products that are not in the catalog.
 
 
 
-    # -----------------------------
+    def reset_history(self):
+        self.history = [
+            {
+                "role": "system",
+                "content": self.system_prompt()
+            }
+        ]
+
+
     # AI RESPONSE
-    # -----------------------------
 
     def reply(
         self,
         customer_message,
         image_bytes=None,
-        image_mime_type=None
+        image_mime_type=None,
+        model=None,
+        temperature=0.7
     ):
 
 
-        model = self.text_model
+        selected_model = model
+        if image_bytes and (not selected_model or "vision" not in selected_model.lower()):
+            selected_model = self.vision_model
+        elif not selected_model:
+            selected_model = self.text_model
 
 
         user_content = customer_message
 
 
 
-        # -----------------------------
         # IMAGE REQUEST
-        # -----------------------------
 
         if image_bytes:
 
@@ -228,9 +229,7 @@ Never invent products that are not in the catalog.
 
 
 
-        # -----------------------------
         # ADD USER MESSAGE
-        # -----------------------------
 
         self.history.append(
 
@@ -248,9 +247,11 @@ Never invent products that are not in the catalog.
 
             response = self.client.chat.completions.create(
 
-                model=model,
+                model=selected_model,
 
-                messages=self.history
+                messages=self.history,
+
+                temperature=temperature
 
             )
 
@@ -274,9 +275,7 @@ Never invent products that are not in the catalog.
 
 
 
-        # -----------------------------
         # SAVE MEMORY
-        # -----------------------------
 
         self.history.append(
 

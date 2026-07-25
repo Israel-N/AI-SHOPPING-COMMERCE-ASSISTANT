@@ -414,7 +414,8 @@ Add one to my cart.
 Assistant:
 Samsung S24 has been added to your cart.
 
-Customer:
+Customer:SHOPPING ASSISTANT ARCHITECTURE.png
+
 Exit
 ```
 
